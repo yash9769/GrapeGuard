@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Root ─────────────────────────────────── */
+:root {
+  --grape: #6500e0;
+  --leaf:  #22c55e;
+  --soil:  #92400e;
+  --bg:    #f5f0ff;
+}
+
+* { -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: 'Noto Sans', sans-serif;
+  background-color: var(--bg);
+  min-height: 100dvh;
+  overscroll-behavior: none;
+}
+
+h1, h2, h3, .font-display {
+  font-family: 'Baloo 2', cursive;
+}
+
+/* ── App shell ────────────────────────────── */
+#root {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  background: white;
+  position: relative;
+  box-shadow: 0 0 40px rgba(101,0,224,0.1);
+}
+
+/* ── Reusable card ────────────────────────── */
+@layer components {
+  .card {
+    @apply bg-white rounded-2xl shadow-md border border-purple-100 p-4;
+  }
+  .card-green {
+    @apply bg-green-50 rounded-2xl shadow-md border border-green-200 p-4;
+  }
+  .card-red {
+    @apply bg-red-50 rounded-2xl shadow-md border border-red-200 p-4;
+  }
+  .card-yellow {
+    @apply bg-yellow-50 rounded-2xl shadow-md border border-yellow-200 p-4;
+  }
+
+  .btn-primary {
+    @apply w-full py-4 rounded-2xl font-display font-bold text-xl text-white
+           bg-grape-600 active:bg-grape-700 transition shadow-lg
+           flex items-center justify-center gap-2;
+  }
+  .btn-secondary {
+    @apply w-full py-4 rounded-2xl font-display font-bold text-xl
+           border-2 border-grape-600 text-grape-600 bg-white active:bg-grape-50
+           transition flex items-center justify-center gap-2;
+  }
+  .btn-green {
+    @apply w-full py-4 rounded-2xl font-display font-bold text-xl text-white
+           bg-leaf-500 active:bg-leaf-600 transition shadow-lg
+           flex items-center justify-center gap-2;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-4 rounded-2xl border-2 border-purple-200
+           text-lg font-body focus:outline-none focus:border-grape-500
+           bg-grape-50 placeholder:text-purple-300;
+  }
+
+  .stat-card {
+    @apply card flex flex-col items-center gap-1 text-center;
+  }
+
+  .nav-tab {
+    @apply flex flex-col items-center gap-0.5 text-xs py-2 px-3
+           text-gray-400 transition-colors font-body;
+  }
+  .nav-tab.active {
+    @apply text-grape-600;
+  }
+}
+
+/* ── Sensor value highlight ───────────────── */
+.value-normal { color: #16a34a; }
+.value-warn   { color: #d97706; }
+.value-danger { color: #dc2626; }
+
+/* ── Pulse animation for live data ──────────*/
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(1.3); }
+}
+.live-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+/* ── Page transitions ─────────────────────── */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter {
+  animation: fadeSlideIn 0.25s ease-out both;
+}
+
+/* ── Loading spinner ──────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid #ede0ff;
+  border-top-color: #6500e0;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
