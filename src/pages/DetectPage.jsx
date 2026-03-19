@@ -98,9 +98,24 @@ export default function DetectPage() {
         )}
 
         {/* Error */}
-        {error && (
-          <div className="card-red text-red-700 text-sm">⚠️ {error}</div>
-        )}
+        {error && error === 'not_a_leaf' ? (
+          <div className="rounded-3xl border-2 border-yellow-300 bg-yellow-50 p-6 flex flex-col items-center gap-3 text-center">
+            <span className="text-5xl">&#x1F343;</span>
+            <p className="font-display font-bold text-xl text-yellow-800">
+              {lang === 'hi' ? 'पत्ती की फोटो लें!' : 'Please take a leaf photo!'}
+            </p>
+            <p className="text-sm text-yellow-700">
+              {lang === 'hi'
+                ? 'यह अंगूर की पत्ती नहीं लगती। कैमरे को पत्ती के पास लाएं।'
+                : 'This does not look like a grape leaf. Point camera at a leaf and try again.'}
+            </p>
+            <button className="btn-primary mt-2" style={{background:'#eab308'}} onClick={reset}>
+              {lang === 'hi' ? 'दोबारा कोशिश करें' : 'Try Again'}
+            </button>
+          </div>
+        ) : error ? (
+          <div className="card-red text-red-700 text-sm">{error}</div>
+        ) : null}
 
         {/* Result */}
         {result && <ResultCard result={result} lang={lang} />}
@@ -172,4 +187,3 @@ function ResultCard({ result, lang }) {
     </div>
   )
 }
-

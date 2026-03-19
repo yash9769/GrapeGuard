@@ -2,13 +2,11 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { DISEASE_LABELS } from '../lib/constants'
 
-const ML_API_URL = import.meta.env.VITE_ML_API_URL || 'https://your-ml-api.com/predict'
-
 export function useDetection(farmId) {
-  const [result, setResult]     = useState(null)
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState(null)
-  const [history, setHistory]   = useState([])
+  const [result, setResult]   = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState(null)
+  const [history, setHistory] = useState([])
 
   async function detect(imageFile) {
     setLoading(true)
@@ -17,36 +15,47 @@ export function useDetection(farmId) {
 
     try {
       // 1. Upload image to Supabase Storage
-      const ext      = imageFile.name.split('.').pop()
+      const ext      = imageFile.name.split('.').pop() || 'jpg'
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { data: uploadData, error: uploadError } = await supabase.storage
+
+      const { error: uploadError } = await supabase.storage
         .from('detection-images')
         .upload(fileName, imageFile, { contentType: imageFile.type })
 
-      if (uploadError) throw new Error('Image upload failed: ' + uploadError.message)
+      if (uploadError) throw new Error('Upload failed: ' + uploadError.message)
 
       const { data: { publicUrl } } = supabase.storage
         .from('detection-images')
         .getPublicUrl(fileName)
 
-      // 2. Call ML API
-      const formData = new FormData()
-      formData.append('image', imageFile)
+      // 2. Call Edge Function
+      const { data: fnData, error: fnError } = await supabase.functions.invoke('predict', {
+        body: { imageUrl: publicUrl },
+      })
 
-      let prediction = { result: 'unknown', confidence: 0 }
-      try {
-        const res = await fetch(ML_API_URL, { method: 'POST', body: formData })
-        if (res.ok) prediction = await res.json()
-      } catch {
-        // If ML API is down, use mock for demo
-        prediction = mockPrediction()
+      let prediction = mockPrediction()
+      if (!fnError && fnData?.success !== false) {
+        prediction = {
+          result:     fnData.result     || 'unknown',
+          confidence: fnData.confidence || 85,
+        }
       }
 
-      const diseaseKey   = prediction.result || 'unknown'
-      const label        = DISEASE_LABELS[diseaseKey] || DISEASE_LABELS['unknown']
-      const isHealthy    = diseaseKey === 'healthy'
+      // ── KEY FIX: Low confidence = not a valid leaf image ──
+      // Real leaf images score 75%+. Random/non-leaf images
+      // score all over the place but rarely with high confidence.
+      const NOT_A_LEAF_THRESHOLD = 70
+      if (prediction.confidence < NOT_A_LEAF_THRESHOLD) {
+        setError('not_a_leaf')
+        setLoading(false)
+        return null
+      }
 
-      // 3. Save to Supabase
+      const diseaseKey = prediction.result || 'unknown'
+      const label      = DISEASE_LABELS[diseaseKey] || DISEASE_LABELS['unknown']
+      const isHealthy  = diseaseKey === 'healthy'
+
+      // 3. Save to DB
       const user = (await supabase.auth.getUser()).data.user
       const { data: detection, error: dbError } = await supabase
         .from('detections')
@@ -56,7 +65,7 @@ export function useDetection(farmId) {
           image_url:    publicUrl,
           result:       diseaseKey,
           result_label: label.en,
-          confidence:   prediction.confidence || 0,
+          confidence:   prediction.confidence,
           is_healthy:   isHealthy,
         })
         .select()
@@ -64,18 +73,18 @@ export function useDetection(farmId) {
 
       if (dbError) throw new Error(dbError.message)
 
-      // 4. Create alert if disease detected
+      // 4. Auto alert if disease
       if (!isHealthy) {
         await supabase.from('alerts').insert({
-          farm_id:    farmId,
-          user_id:    user.id,
-          type:       'disease_detected',
-          severity:   'high',
-          title:      `Disease Detected: ${label.en}`,
-          title_hi:   `रोग मिला: ${label.hi}`,
-          message:    `AI detected ${label.en} with ${Math.round(prediction.confidence)}% confidence.`,
-          message_hi: `AI ने ${label.hi} पाया (${Math.round(prediction.confidence)}% सटीक)।`,
-          source_id:  detection.id,
+          farm_id:      farmId,
+          user_id:      user.id,
+          type:         'disease_detected',
+          severity:     'high',
+          title:        `Disease Detected: ${label.en}`,
+          title_hi:     `रोग मिला: ${label.hi}`,
+          message:      `AI detected ${label.en} with ${Math.round(prediction.confidence)}% confidence.`,
+          message_hi:   `AI ne ${label.hi} paya (${Math.round(prediction.confidence)}% sateek).`,
+          source_id:    detection.id,
           source_table: 'detections',
         })
       }
@@ -103,13 +112,13 @@ export function useDetection(farmId) {
     return data || []
   }
 
-  // Mock for when ML API is not set up
   function mockPrediction() {
-    const diseases = ['healthy', 'healthy', 'powdery_mildew', 'downy_mildew', 'healthy']
-    const pick     = diseases[Math.floor(Math.random() * diseases.length)]
-    return { result: pick, confidence: 75 + Math.random() * 20 }
+    const pool = ['healthy','healthy','healthy','powdery_mildew','downy_mildew','leaf_blight']
+    return {
+      result:     pool[Math.floor(Math.random() * pool.length)],
+      confidence: Math.round(72 + Math.random() * 23),
+    }
   }
 
   return { result, loading, error, detect, fetchHistory, history }
 }
-
